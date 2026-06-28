@@ -3,61 +3,72 @@ from db import get_conn, init
 
 init()
 
-st.set_page_config(page_title="Fridge", layout="centered")
+st.set_page_config(page_title="Fridge", layout="wide")
 
 # -------------------
-# CLEAN STYLE (MINIMAL 2026)
+# MODERN CENTERED APP CONTAINER
 # -------------------
 st.markdown("""
 <style>
 
-html, body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI";
-    background: #fafafa;
+/* celé pozadí */
+body {
+    background: #f6f7f9;
 }
 
-h1, h2 {
+/* app container */
+.main .block-container {
+    max-width: 520px;
+    padding-top: 40px;
+    margin: auto;
+}
+
+/* title */
+h1 {
     text-align: center;
     font-weight: 600;
-    letter-spacing: -0.5px;
+    font-size: 26px;
+    margin-bottom: 20px;
 }
 
-.block {
+/* card */
+.card {
+    background: white;
+    border-radius: 14px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 10px;
-    margin: 4px 0;
-    border-radius: 10px;
-    background: white;
     border: 1px solid #eee;
-    font-size: 14px;
 }
 
+/* name */
 .name {
     font-size: 14px;
+    font-weight: 500;
 }
 
-.badge-low {
-    color: #ef4444;
-    font-size: 12px;
-}
+/* status */
+.ok { color: #16a34a; font-size: 12px; }
+.low { color: #ef4444; font-size: 12px; }
 
-.badge-ok {
-    color: #16a34a;
-    font-size: 12px;
-}
-
+/* buttons */
 button {
-    height: 28px !important;
-    width: 28px !important;
-    padding: 0 !important;
+    height: 26px !important;
+    width: 26px !important;
     border-radius: 8px !important;
-    font-size: 14px !important;
+    padding: 0 !important;
 }
 
-div[data-testid="column"] {
-    padding: 0px 4px;
+/* shopping grid cards */
+.shop-card {
+    background: white;
+    padding: 8px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid #eee;
+    font-size: 13px;
 }
 
 </style>
@@ -96,27 +107,24 @@ def add_item(name):
     conn.close()
 
 
-# -------------------
-# DATA
-# -------------------
 data = load()
 
 st.title("🧊 Fridge")
 
 # -------------------
-# LEDNICE (CLEAN LIST)
+# LEDNICE (CLEAN CENTERED LIST)
 # -------------------
 for item, amount in data:
 
-    col1, col2, col3 = st.columns([6, 1, 1])
+    col1, col2, col3 = st.columns([7, 1, 1])
 
-    status = "badge-low" if amount == 0 else "badge-ok"
+    status_class = "low" if amount == 0 else "ok"
 
     with col1:
         st.markdown(f"""
-        <div class="block">
+        <div class="card">
             <div class="name">{item}</div>
-            <div class="{status}">{amount}</div>
+            <div class="{status_class}">{amount}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -132,28 +140,30 @@ for item, amount in data:
 
 
 # -------------------
-# 🛒 NÁKUP (MINIMAL TEXT)
+# 🛒 NÁKUP (GRID 2-3 SLOUPCE)
 # -------------------
 st.markdown("## 🛒 Nákup")
 
 missing = [i for i, a in data if a == 0]
 
 if missing:
+
     cols = st.columns(3)
 
     for i, item in enumerate(missing):
         with cols[i % 3]:
             st.markdown(f"""
-            <div class="block">
-                <div class="name">{item}</div>
+            <div class="shop-card">
+                {item}
             </div>
             """, unsafe_allow_html=True)
+
 else:
-    st.markdown("<p style='text-align:center;color:green;'>Všechno máme 🎉</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;color:#16a34a;'>Všechno máme 🎉</p>", unsafe_allow_html=True)
 
 
 # -------------------
-# ➕ ADD ITEM (MINIMAL)
+# ➕ ADD ITEM (CENTERED)
 # -------------------
 st.markdown("---")
 
