@@ -64,7 +64,7 @@ init_db()
 # -------------------
 # 2. KONFIGURACE STRÁNKY
 # -------------------
-st.set_page_config(page_title="Naše potraviny", page_icon="🛒", layout="centered")
+st.set_page_config(page_title="Potraviny", page_icon="🛒", layout="centered")
 
 st.markdown("""
 <style>
