@@ -3,59 +3,66 @@ from db import get_conn, init
 
 init()
 
-st.set_page_config(
-    page_title="Smart Fridge",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Fridge", layout="centered")
 
 # -------------------
-# MODERN STYLE
+# CLEAN STYLE (MINIMAL 2026)
 # -------------------
 st.markdown("""
 <style>
 
-html, body, [class*="css"]  {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI";
+    background: #fafafa;
+}
+
+h1, h2 {
+    text-align: center;
+    font-weight: 600;
+    letter-spacing: -0.5px;
 }
 
 .block {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 6px 10px;
+    margin: 4px 0;
+    border-radius: 10px;
+    background: white;
+    border: 1px solid #eee;
+    font-size: 14px;
 }
 
 .name {
-    font-size: 16px;
-    font-weight: 500;
-}
-
-.badge-ok {
-    color: #22c55e;
-    font-weight: 600;
+    font-size: 14px;
 }
 
 .badge-low {
     color: #ef4444;
-    font-weight: 600;
+    font-size: 12px;
 }
 
-button[kind="secondary"] {
-    border-radius: 10px !important;
+.badge-ok {
+    color: #16a34a;
+    font-size: 12px;
 }
 
-h1 {
-    font-weight: 700;
-    letter-spacing: -0.5px;
+button {
+    height: 28px !important;
+    width: 28px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+}
+
+div[data-testid="column"] {
+    padding: 0px 4px;
 }
 
 </style>
 """, unsafe_allow_html=True)
+
 
 # -------------------
 # DB
@@ -94,70 +101,63 @@ def add_item(name):
 # -------------------
 data = load()
 
-st.title("🧊 Smart Fridge")
+st.title("🧊 Fridge")
 
 # -------------------
-# LEDNICE (GRID)
+# LEDNICE (CLEAN LIST)
 # -------------------
-st.subheader("Lednice")
+for item, amount in data:
 
-cols = st.columns(3)
+    col1, col2, col3 = st.columns([6, 1, 1])
 
-for i, (item, amount) in enumerate(data):
-    with cols[i % 3]:
+    status = "badge-low" if amount == 0 else "badge-ok"
 
-        status = "badge-low" if amount == 0 else "badge-ok"
-        icon = "🔴" if amount == 0 else "🟢"
-
+    with col1:
         st.markdown(f"""
         <div class="block">
-            <div>
-                <div class="name">{icon} {item}</div>
-                <div class="{status}">{amount} ks</div>
-            </div>
+            <div class="name">{item}</div>
+            <div class="{status}">{amount}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        c1, c2 = st.columns(2)
-
-        if c1.button("➕", key=f"p_{item}"):
+    with col2:
+        if st.button("+", key=f"p_{item}"):
             update(item, 1)
             st.rerun()
 
-        if c2.button("➖", key=f"m_{item}"):
+    with col3:
+        if st.button("-", key=f"m_{item}"):
             update(item, -1)
             st.rerun()
 
 
 # -------------------
-# 🛒 NÁKUP (GRID)
+# 🛒 NÁKUP (MINIMAL TEXT)
 # -------------------
-st.divider()
-st.subheader("🛒 Nákupní seznam")
+st.markdown("## 🛒 Nákup")
 
 missing = [i for i, a in data if a == 0]
 
 if missing:
-    cols2 = st.columns(3)
+    cols = st.columns(3)
 
     for i, item in enumerate(missing):
-        with cols2[i % 3]:
+        with cols[i % 3]:
             st.markdown(f"""
             <div class="block">
-                <div class="name">🛒 {item}</div>
+                <div class="name">{item}</div>
             </div>
             """, unsafe_allow_html=True)
 else:
-    st.success("Všechno máme 🎉")
+    st.markdown("<p style='text-align:center;color:green;'>Všechno máme 🎉</p>", unsafe_allow_html=True)
 
 
 # -------------------
-# ➕ PŘIDÁNÍ
+# ➕ ADD ITEM (MINIMAL)
 # -------------------
-st.divider()
-st.subheader("➕ Přidat potravinu")
+st.markdown("---")
 
-new_item = st.text_input("Název potraviny")
+new_item = st.text_input("", placeholder="Přidat potravinu...")
 
 if st.button("Přidat"):
     if new_item:
