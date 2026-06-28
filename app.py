@@ -141,7 +141,7 @@ with tab2:
     missing = [item for item, amount in data if amount == 0]
 
     if missing:
-        st.subheader("Dojelo to, kupte to:")
+        st.subheader("Co koupit: ")
         # Zobrazení nákupu v mřížce
         shop_cols = st.columns(2)
         for i, item in enumerate(missing):
