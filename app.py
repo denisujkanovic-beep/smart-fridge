@@ -1,77 +1,118 @@
 import streamlit as st
+from db import get_conn, init
 
-st.title("🧊 Smart Lednice")
+init()
 
-# -------------------
-# DATA
-# -------------------
-if "fridge" not in st.session_state:
-    st.session_state.fridge = {
-        "mléko": 2,
-        "máslo": 1,
-        "vejce": 6,
-        "šunka": 0,
-        "sýr": 0
+st.set_page_config(page_title="Smart Fridge", layout="centered")
+
+st.markdown("""
+<style>
+    .card {
+        padding: 12px;
+        border-radius: 12px;
+        background: #111;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: white;
     }
 
-fridge = st.session_state.fridge
+    .name {
+        font-size: 18px;
+    }
+
+    .low {
+        color: #ff4d4d;
+    }
+
+    .ok {
+        color: #4dff88;
+    }
+
+    .btn {
+        font-size: 20px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 
-# -------------------
-# UPDATE FUNKCE
-# -------------------
-def change_amount(item, delta):
-    fridge[item] = max(0, fridge[item] + delta)
+def load():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM fridge")
+    data = c.fetchall()
+    conn.close()
+    return data
 
+
+def update(item, delta):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("UPDATE fridge SET amount = MAX(amount + ?, 0) WHERE item = ?", (delta, item))
+    conn.commit()
+    conn.close()
+
+
+def add_item(name):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO fridge VALUES (?, 0)", (name,))
+    conn.commit()
+    conn.close()
+
+
+st.title("🧊 Smart Fridge")
+
+data = load()
 
 # -------------------
 # LEDNICE
 # -------------------
-st.subheader("🧊 Lednice")
+for item, amount in data:
+    col1, col2, col3 = st.columns([6, 1, 1])
 
-for item in list(fridge.keys()):
-    col1, col2, col3 = st.columns([3, 1, 1])
+    status = "low" if amount == 0 else "ok"
 
     with col1:
-        if fridge[item] == 0:
-            st.markdown(f"❌ **{item}**: {fridge[item]}")
-        else:
-            st.markdown(f"✅ **{item}**: {fridge[item]}")
+        st.markdown(f"**{item}**  <span class='{status}'>({amount})</span>", unsafe_allow_html=True)
 
     with col2:
-        if st.button(f"+ {item}", key=f"plus_{item}"):
-            change_amount(item, 1)
+        if st.button("➕", key=f"p_{item}"):
+            update(item, 1)
             st.rerun()
 
     with col3:
-        if st.button(f"- {item}", key=f"minus_{item}"):
-            change_amount(item, -1)
+        if st.button("➖", key=f"m_{item}"):
+            update(item, -1)
             st.rerun()
 
 
 # -------------------
-# 🛒 NÁKUPNÍ SEZNAM
-# -------------------
-st.subheader("🛒 Nákupní seznam")
-
-missing_items = [item for item, amount in fridge.items() if amount == 0]
-
-if missing_items:
-    for item in missing_items:
-        st.write(f"🛒 {item}")
-else:
-    st.success("Nic nechybí 🎉")
-
-
-# -------------------
-# ➕ PŘIDÁNÍ NOVÉ POTRAVINY
+# 🛒 NÁKUP
 # -------------------
 st.divider()
-st.subheader("➕ Přidat potravinu")
+st.subheader("🛒 Nákupní seznam")
 
-new_item = st.text_input("Název potraviny")
+missing = [i for i, a in data if a == 0]
+
+if missing:
+    st.write(" • ".join(missing))
+else:
+    st.success("Všechno máme 🎉")
+
+
+# -------------------
+# ➕ PŘIDÁNÍ
+# -------------------
+st.divider()
+new_item = st.text_input("Přidat potravinu")
 
 if st.button("Přidat"):
-    if new_item and new_item not in fridge:
-        fridge[new_item] = 0
+    if new_item:
+        add_item(new_item)
         st.rerun()
