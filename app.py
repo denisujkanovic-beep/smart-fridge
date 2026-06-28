@@ -1,37 +1,34 @@
 import streamlit as st
-from db import get_conn, init
-
-# Inicializace databáze
-init()
+import sqlite3
 
 # -------------------
-# KONFIGURACE STRÁNKY
+# 1. DATABÁZOVÁ LOGIKA (Integrovaná přímo zde)
 # -------------------
-st.set_page_config(
-    page_title="Chytrá Lednice", 
-    page_icon="🧊", 
-    layout="centered" # "centered" je pro mobilní "app" feel lepší než "wide"
-)
+def get_conn():
+    return sqlite3.connect("fridge.db", check_same_thread=False)
 
-# Minimalistické CSS pro vyčištění defaultního Streamlit vzhledu
-st.markdown("""
-<style>
-    /* Zúžení kontejneru pro mobilní vzhled */
-    .block-container {
-        max-width: 600px;
-        padding-top: 2rem;
-    }
-    /* Skrytí defaultního Streamlit menu a patičky pro produkční vzhled */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
+def init_db():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS fridge (
+        item TEXT PRIMARY KEY,
+        amount INTEGER
+    )
+    """)
+    # Přidání výchozích dat, pokud je tabulka prázdná
+    c.execute("SELECT COUNT(*) FROM fridge")
+    if c.fetchone()[0] == 0:
+        c.executemany("INSERT INTO fridge VALUES (?, ?)", [
+            ("Mléko", 2),
+            ("Máslo", 1),
+            ("Vejce", 6),
+            ("Šunka", 0),
+            ("Sýr", 0)
+        ])
+    conn.commit()
+    conn.close()
 
-
-# -------------------
-# DATABÁZOVÉ FUNKCE
-# -------------------
 def load_data():
     conn = get_conn()
     c = conn.cursor()
@@ -43,22 +40,17 @@ def load_data():
 def update_amount(item, delta):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("""
-        UPDATE fridge
-        SET amount = MAX(amount + ?, 0)
-        WHERE item = ?
-    """, (delta, item))
+    c.execute("UPDATE fridge SET amount = MAX(amount + ?, 0) WHERE item = ?", (delta, item))
     conn.commit()
     conn.close()
 
 def add_item(name):
     conn = get_conn()
     c = conn.cursor()
-    # Strip odstraní nechtěné mezery před a za slovem
     c.execute("INSERT OR IGNORE INTO fridge (item, amount) VALUES (?, 0)", (name.strip(),))
     conn.commit()
     conn.close()
-    
+
 def delete_item(item):
     conn = get_conn()
     c = conn.cursor()
@@ -66,84 +58,95 @@ def delete_item(item):
     conn.commit()
     conn.close()
 
+# Inicializace DB při startu
+init_db()
 
 # -------------------
-# HLAVNÍ UI
+# 2. KONFIGURACE STRÁNKY
 # -------------------
-st.title("🧊 Moje Lednice")
-st.markdown("Měj dokonalý přehled o tom, co ti doma chybí.")
+st.set_page_config(page_title="Naše potraviny", page_icon="🛒", layout="centered")
+
+st.markdown("""
+<style>
+    .block-container { max-width: 800px; padding-top: 2rem; }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    /* Úprava mezer mezi kartami */
+    [data-testid="stVerticalBlock"] > div { margin-bottom: -5px; }
+</style>
+""", unsafe_allow_html=True)
+
+# -------------------
+# 3. HLAVNÍ UI
+# -------------------
+st.title("🛒 Naše potraviny")
+st.caption("Aby se Denis a Anett furt nehádali..")
 
 # Načtení dat
 data = load_data()
 
-# Rozdělení do záložek pro lepší organizaci
-tab1, tab2 = st.tabs(["📋 Inventář", "🛒 Nákupní seznam"])
+tab1, tab2 = st.tabs(["📋 Co máme doma", "🛒 Nákupní seznam"])
 
-# --- ZÁLOŽKA 1: INVENTÁŘ A PŘIDÁVÁNÍ ---
+# --- TAB 1: INVENTÁŘ (2 SLOUPCE) ---
 with tab1:
-    
-    # 1. Přidávací sekce nahoře
-    st.subheader("Přidat novou položku")
-    col_input, col_btn = st.columns([3, 1], vertical_alignment="bottom")
-    
-    with col_input:
-        new_item = st.text_input("Název položky", placeholder="Např. Mléko, Vajíčka...", label_visibility="collapsed")
-    with col_btn:
-        if st.button("➕ Přidat", use_container_width=True, type="primary"):
-            if new_item:
-                add_item(new_item)
-                st.toast(f"Položka '{new_item}' byla přidána! ✅")
-                st.rerun()
+    # Sekce pro přidávání
+    with st.expander("➕ Přidat novou věc do seznamu"):
+        col_in, col_bt = st.columns([3, 1], vertical_alignment="bottom")
+        with col_in:
+            new_item = st.text_input("Název", placeholder="Např. Jogurt...", label_visibility="collapsed")
+        with col_bt:
+            if st.button("Přidat", use_container_width=True, type="primary"):
+                if new_item:
+                    add_item(new_item)
+                    st.rerun()
 
-    st.divider()
+    st.write("") # Mezera
 
-    # 2. Výpis položek
     if not data:
-        st.info("Tvoje lednice je zatím prázdná. Přidej první položku výše 👆")
+        st.info("Seznam je prázdný.")
     else:
-        for item, amount in data:
-            # Využití nativního kontejneru s ohraničením (nahrazuje tvůj div class="card")
-            with st.container(border=True):
-                # vertical_alignment="center" zajistí, že text a tlačítka nelítají nahoru a dolů
-                c1, c2, c3, c4 = st.columns([4, 1, 1, 1], vertical_alignment="center")
+        # ROZDĚLENÍ DO DVOU SLOUPCŮ
+        col_left, col_right = st.columns(2)
+        
+        for i, (item, amount) in enumerate(data):
+            # Střídáme sloupce (sudé vlevo, liché vpravo)
+            target_col = col_left if i % 2 == 0 else col_right
+            
+            with target_col:
+                with st.container(border=True):
+                    # Zmenšíme popis a tlačítka, aby se to vešlo vedle sebe v úzkém sloupci
+                    c1, c2, c3, c4 = st.columns([2, 1, 1, 1], vertical_alignment="center")
+                    
+                    with c1:
+                        st.markdown(f"**{item}**")
+                        color = "#16a34a" if amount > 0 else "#ef4444"
+                        st.markdown(f"<span style='color:{color}; font-size:12px;'>Kusů: {amount}</span>", unsafe_allow_html=True)
 
-                with c1:
-                    # Vizuální odlišení stavu přímo v markdownu
-                    if amount == 0:
-                        st.markdown(f"**{item}**<br>🔴 <span style='color:#ef4444; font-size:12px;'>Došlo</span>", unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"**{item}**<br>🟢 <span style='color:#16a34a; font-size:12px;'>Kusů: {amount}</span>", unsafe_allow_html=True)
+                    with c2:
+                        if st.button("−", key=f"m_{item}", use_container_width=True):
+                            update_amount(item, -1)
+                            st.rerun()
+                    with c3:
+                        if st.button("＋", key=f"p_{item}", use_container_width=True):
+                            update_amount(item, 1)
+                            st.rerun()
+                    with c4:
+                        if st.button("🗑️", key=f"d_{item}", use_container_width=True):
+                            delete_item(item)
+                            st.rerun()
 
-                with c2:
-                    if st.button("➖", key=f"m_{item}", use_container_width=True):
-                        update_amount(item, -1)
-                        st.rerun()
-
-                with c3:
-                    if st.button("➕", key=f"p_{item}", use_container_width=True):
-                        update_amount(item, 1)
-                        st.rerun()
-                        
-                with c4:
-                    if st.button("🗑️", key=f"d_{item}", use_container_width=True):
-                        delete_item(item)
-                        st.toast(f"Položka '{item}' smazána.")
-                        st.rerun()
-
-
-# --- ZÁLOŽKA 2: NÁKUPNÍ SEZNAM ---
+# --- TAB 2: NÁKUPNÍ SEZNAM ---
 with tab2:
     missing = [item for item, amount in data if amount == 0]
 
     if missing:
-        st.subheader("Tohle musíš koupit:")
-        # Grid layout pro nákupní seznam
-        cols = st.columns(3)
+        st.subheader("Dojelo to, kupte to:")
+        # Zobrazení nákupu v mřížce
+        shop_cols = st.columns(2)
         for i, item in enumerate(missing):
-            with cols[i % 3]:
-                # Použití st.error pro červený "warning" look kartičky
-                st.error(f"🛒 **{item}**")
-                
+            with shop_cols[i % 2]:
+                st.error(f"❌ {item}")
     else:
-        st.success("Všechno máme! 🎉 Žádný nákup není potřeba.")
-        st.balloons() # Malý easter egg pro radost, když je nakoupeno
+        # ŽÁDNÉ BALÓNKY - jen čistá zpráva
+        st.success("Máme všechno! Denis i Anett můžou být v klidu. ✅")
