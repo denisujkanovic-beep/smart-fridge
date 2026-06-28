@@ -80,7 +80,7 @@ st.markdown("""
 # -------------------
 # 3. HLAVNÍ UI
 # -------------------
-st.title("Potraviny")
+st.title("Seznam potravin :-)")
 st.caption("Aby se Denis a Anett furt nehádali..")
 
 # Načtení dat
