@@ -1,8 +1,10 @@
 import streamlit as st
 
-st.title("🧊 Smart Fridge PRO")
+st.title("🧊 Smart Lednice")
 
-# inicializace dat
+# -------------------
+# DATA
+# -------------------
 if "fridge" not in st.session_state:
     st.session_state.fridge = {
         "mléko": 2,
@@ -14,77 +16,62 @@ if "fridge" not in st.session_state:
 
 fridge = st.session_state.fridge
 
-# -------------------
-# ➕ PŘIDÁNÍ POTRAVIN
-# -------------------
-st.subheader("➕ Přidat / upravit potravinu")
-
-item = st.text_input("Název potraviny")
-amount = st.number_input("Množství", min_value=0, step=1)
-
-if st.button("Uložit"):
-    if item:
-        fridge[item] = amount
-        st.success(f"{item} nastaveno na {amount}")
-
-st.divider()
 
 # -------------------
-# 🧊 LEDNICE
+# UPDATE FUNKCE
+# -------------------
+def change_amount(item, delta):
+    fridge[item] = max(0, fridge[item] + delta)
+
+
+# -------------------
+# LEDNICE
 # -------------------
 st.subheader("🧊 Lednice")
 
-for item, amount in fridge.items():
-    col1, col2 = st.columns(2)
+for item in list(fridge.keys()):
+    col1, col2, col3 = st.columns([3, 1, 1])
 
     with col1:
-        st.write(f"**{item}**: {amount}")
+        if fridge[item] == 0:
+            st.markdown(f"❌ **{item}**: {fridge[item]}")
+        else:
+            st.markdown(f"✅ **{item}**: {fridge[item]}")
 
     with col2:
-        if st.button(f"❌ odstranit {item}"):
-            del fridge[item]
+        if st.button(f"+ {item}", key=f"plus_{item}"):
+            change_amount(item, 1)
             st.rerun()
 
-st.divider()
+    with col3:
+        if st.button(f"- {item}", key=f"minus_{item}"):
+            change_amount(item, -1)
+            st.rerun()
+
 
 # -------------------
 # 🛒 NÁKUPNÍ SEZNAM
 # -------------------
 st.subheader("🛒 Nákupní seznam")
 
-recipes = {
-    "omeleta": {"vejce": 3, "mléko": 1},
-    "toast": {"šunka": 2, "sýr": 1}
-}
+missing_items = [item for item, amount in fridge.items() if amount == 0]
 
-shopping = {}
-
-for recipe, ingredients in recipes.items():
-    for ing, needed in ingredients.items():
-        have = fridge.get(ing, 0)
-        missing = needed - have
-        if missing > 0:
-            shopping[ing] = shopping.get(ing, 0) + missing
-
-if shopping:
-    for item, amount in shopping.items():
-        st.write(f"🛒 {item}: {amount}")
+if missing_items:
+    for item in missing_items:
+        st.write(f"🛒 {item}")
 else:
     st.success("Nic nechybí 🎉")
 
+
+# -------------------
+# ➕ PŘIDÁNÍ NOVÉ POTRAVINY
+# -------------------
 st.divider()
+st.subheader("➕ Přidat potravinu")
 
-# -------------------
-# 🍳 CO MŮŽEME VAŘIT
-# -------------------
-st.subheader("🍳 Co můžeme vařit")
+new_item = st.text_input("Název potraviny")
 
-for recipe, ingredients in recipes.items():
-    can_make = True
-
-    for ing, needed in ingredients.items():
-        if fridge.get(ing, 0) < needed:
-            can_make = False
-
-    if can_make:
-        st.success(recipe)
+if st.button("Přidat"):
+    if new_item and new_item not in fridge:
+        fridge[new_item] = 0
+        st.rerun()
